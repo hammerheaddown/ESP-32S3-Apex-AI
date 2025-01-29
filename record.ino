@@ -4,11 +4,10 @@
 #include <SD.h>
 #include <math.h> // For M_PI definition
 
-//  eddit as you need here
+//  edit as you need here
 #define VOLUME_SCALE 0.15  // Volume scaling factor (0.0 — silence, 1.0 — original level)
 #define DURATION_SEC 10
-const int16_t noiseGateThreshold = 2000;
-
+const int16_t noiseGateThreshold = 2000;  //   anything over 2000 can start to lose human voice
 
 // SD card pins for an externally attached SD card
 #define SD_MISO            4
@@ -22,7 +21,7 @@ const int16_t noiseGateThreshold = 2000;
 #define I2S_MIC_LEFT_RIGHT_CLOCK GPIO_NUM_15
 #define I2S_MIC_SERIAL_DATA GPIO_NUM_17
 
-#define SAMPLE_RATE 44100  // Sampling rate (16 kHz)
+#define SAMPLE_RATE 44100  // Sampling rate (44.1 kHz)
 #define BITS_PER_SAMPLE I2S_BITS_PER_SAMPLE_16BIT  // 16 bits per sample
 #define BUFFER_SIZE 2048  // Buffer size
 
