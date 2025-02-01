@@ -24,8 +24,8 @@
 
 Audio audio;
 
-String ssid =     "MyCharterWiFic1-2G";
-String password = "luckyjade033";
+String ssid =     "";
+String password = "";
 
 void setup() {
     Serial.begin(115200);
