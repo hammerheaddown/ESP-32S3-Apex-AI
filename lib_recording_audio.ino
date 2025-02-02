@@ -255,11 +255,11 @@ void setupNTP() {
 
 void setup() {
     Serial.begin(115200);
-    setupWiFi();
-    setupNTP();  // Now setupNTP will use the offset from WiFi setup
-    SD_setup();
-    i2s_setup();
-    start_recording();
+        setupWiFi();
+        setupNTP();  
+        SD_setup();
+        i2s_setup();
+        start_recording();
 }
 
 void loop() {
