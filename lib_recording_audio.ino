@@ -171,8 +171,6 @@ void i2s_setup() {
     }
   }
 
-
-
 // Get Current Time as Filename-Friendly String
 String getCurrentTimestamp() {
   struct tm timeinfo;
