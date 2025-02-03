@@ -41,7 +41,7 @@ const char *ssid     = "";
 const char *password = "";
 long gmtOffset_sec = 0;  // Global variable to store the timezone offset
 
-int countdown = 10; // Initial countdown value
+int countdown = 10; // recording length
 int currentCountdown = countdown; // Holds the active countdown value
 bool timerRunning = false;
 unsigned long previousMillis = 0;
@@ -132,8 +132,6 @@ void SD_setup() {
 
     Serial.print("Free Heap before operations: ");
     Serial.println(ESP.getFreeHeap());
-
-    // listFiles();   
 }
 
 void i2s_setup() {
@@ -172,6 +170,8 @@ void i2s_setup() {
         while (1);
     }
   }
+
+
 
 // Get Current Time as Filename-Friendly String
 String getCurrentTimestamp() {
@@ -216,10 +216,6 @@ void setupWiFi() {
       int offsetEnd = payload.indexOf(",", offsetStart);
       String rawOffsetStr = payload.substring(offsetStart, offsetEnd); // Removed .trim() here, it was causing the issue
 
-      // Debug print the string before conversion
-      //Serial.print("Raw Offset String: ");
-      // Serial.println(rawOffsetStr);
-
       // Convert to long, ensuring negative values are preserved
       long offset = 0;
       int sign = 1;
@@ -231,10 +227,6 @@ void setupWiFi() {
         offset = offset * 10 + (rawOffsetStr.charAt(i) - '0');
       }
       gmtOffset_sec = sign * offset;
-
-      // Debug print after conversion
-      // Serial.print("GMT Offset (sec): ");
-      // Serial.println(gmtOffset_sec);
 
       // Parse client IP and timezone
       int ipStart = payload.indexOf("\"client_ip\":\"") + 13;
@@ -281,7 +273,7 @@ void loop() {
 
     if (command.equalsIgnoreCase("start")) {
       if (!timerRunning) {
-        Serial.println("Debug: Starting timer...");
+        Serial.println("Countdown Started");
         timerRunning = true;
         currentCountdown = countdown;
         start_recording();
@@ -295,15 +287,16 @@ void loop() {
     if (command.equalsIgnoreCase("stop")) {
       if (timerRunning) {
         timerRunning = false;
+        String filename = recordingFile.name();
         stop_recording();
-        Serial.printf("Recording stopped with %d seconds left\n", currentCountdown);
+        finishedRecording(filename);
       } else {
         Serial.println("No recording is running.");
       }
     }
 
     if (command.equalsIgnoreCase("recordings")) {
-      listRecordings();  // List recordings when "recordings" is received
+      listRecordings();  // List recordings folder when "recordings" is received
     }
   }
 
@@ -315,9 +308,11 @@ void loop() {
       currentCountdown--;
 
       if (currentCountdown == 0) {
-        Serial.println("Debug: Countdown reached zero, preparing to stop recording...");
+        Serial.println("Countdown reached zero, preparing to stop recording...");
         delay(stopDelay); // Wait before stopping recording
+        String filename = recordingFile.name();  // Capture filename here
         stop_recording();
+        finishedRecording(filename);  // Use captured filename
         Serial.println("Recording finished!");
         timerRunning = false;
       }
@@ -327,7 +322,7 @@ void loop() {
 
 void start_recording() {
   if (!isRecording) {
-    Serial.println("Debug: Attempting to start recording...");
+    Serial.println("Attempting to start recording...");
     String filename = "/recordings/" + getCurrentTimestamp() + ".wav";
     recordingFile = SD.open(filename, FILE_WRITE);
     if (!recordingFile) {
@@ -347,8 +342,8 @@ void start_recording() {
 
 void stop_recording() {
   if (isRecording) {
-    Serial.println("Debug: Stopping recording...");
-    isRecording = false;  // Set this to false before closing the file
+    Serial.println("Stopping recording...");
+    isRecording = false;
     if (recordingFile) {
       updateWAVHeader(recordingFile);
       recordingFile.close();
@@ -360,17 +355,17 @@ void stop_recording() {
 }
 
 void recordAudioTask(void *pvParameters) {
-  Serial.println("Debug: Record Audio Task started");
+  Serial.println("Record Audio Task started");
   while (1) { 
     if (!isRecording) {
-      Serial.println("Debug: Record Audio Task noticed stop signal");
+      Serial.println("Record Audio Task noticed stop signal");
       vTaskDelete(NULL); // Clean up by deleting the task
     }
     if (!recordAudio(recordingFile.name(), 1)) {
       if (isRecording) {
         Serial.println("Error in recording audio!");
       } else {
-        Serial.println("Debug: Recording stopped normally");
+        Serial.println("Recording stopped normally");
       }
       vTaskDelete(NULL); // Stop task
     }
@@ -409,7 +404,7 @@ bool recordAudio(const char *path, uint32_t duration) {
     }
 
   if (!isRecording) {
-    //Serial.println("Debug: Recording stopped, skipping write");
+    Serial.println("Recording stopped, skipping write");
     return false;  // Don't attempt to write if recording has been stopped
   }
 
@@ -470,34 +465,6 @@ void updateWAVHeader(File &file) {
     file.write((const uint8_t *)&dataSize, 4);
 }
 
-void listFiles() {
-    Serial.println("Listing files:");
-    File root = SD.open("/");
-    if (!root) {
-        Serial.println("Failed to open directory");
-        return;
-    }
-    if (!root.isDirectory()) {
-        Serial.println("Not a directory");
-        return;
-    }
-
-    File file = root.openNextFile();
-    while (file) {
-        if (file.isDirectory()) {
-            Serial.print("  DIR : ");
-            Serial.println(file.name());
-        } else {
-            Serial.print("  FILE: ");
-            Serial.print(file.name());
-            Serial.print("  SIZE: ");
-            Serial.println(file.size());
-        }
-        file = root.openNextFile();
-    }
-    root.close();
-}
-
 void listRecordings() {
     Serial.println("Listing files in /recordings:");
     File dir = SD.open("/recordings");
@@ -526,4 +493,9 @@ void listRecordings() {
     }
     file.close();
     dir.close();
+}
+
+void finishedRecording(String filename) {
+  Serial.print(filename);
+  Serial.println(" is done recording and available to listen to.");
 }
