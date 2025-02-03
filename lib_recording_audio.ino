@@ -1,5 +1,3 @@
-// esp 32 dev kit
-
 #include "driver/i2s.h"
 #include "Arduino.h"
 #include <SPI.h>
@@ -10,23 +8,6 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-// Micro SD TF Card Adater Reader Module 6Pin SPI Interface Driver card pins
-#define SD_CS          5
-#define SD_MOSI       23
-#define SD_MISO       19
-#define SD_SCK        18
-
-//INMP441 Omnidirectional Mic pins
-#define I2S_MIC_CHANNEL I2S_CHANNEL_FMT_ONLY_LEFT
-#define I2S_MIC_LEFT_RIGHT_CLOCK    GPIO_NUM_25
-#define I2S_MIC_SERIAL_DATA         GPIO_NUM_32
-#define I2S_MIC_SERIAL_CLOCK        GPIO_NUM_33
-
-// MAX98357 I2S Audio Amplifier pins
-#define I2S_BCLK GPIO_NUM_14
-#define I2S_DOUT GPIO_NUM_13
-#define I2S_LRC GPIO_NUM_12
-
 // Edit as you need here
 #define VOLUME_SCALE 0.12  // Volume scaling factor (0.0 — silence, 1.0 — original level)
 #define DURATION_SEC 10
@@ -34,14 +15,46 @@ const int16_t noiseGateThreshold = 1500;  // Anything over 2000 can start to los
 
 #define LOW_PASS_FREQ        4000 // Hz    6000
 #define HIGH_PASS_FREQ       100  // Hz     200
-#define SAMPLE_RATE 16000  // Sampling rate (16 kHz)
+
+// SD card pins for an externally attached SD card
+#define SD_CS          5
+#define SD_MOSI       23
+#define SD_MISO       19
+#define SD_SCK        18
+
+#define I2S_MIC_CHANNEL I2S_CHANNEL_FMT_ONLY_LEFT
+#define I2S_MIC_LEFT_RIGHT_CLOCK    GPIO_NUM_25
+#define I2S_MIC_SERIAL_DATA         GPIO_NUM_32
+#define I2S_MIC_SERIAL_CLOCK        GPIO_NUM_33
+
+#define SAMPLE_RATE 16000  // Sampling rate (44.1 kHz)
 #define BITS_PER_SAMPLE I2S_BITS_PER_SAMPLE_16BIT  // 16 bits per sample
 #define BUFFER_SIZE 2048  // Buffer size
+
+// Digital I/O used
+#define I2S_BCLK GPIO_NUM_14
+#define I2S_DOUT GPIO_NUM_13
+#define I2S_LRC GPIO_NUM_12
 
 // NTP Configuration
 const char *ssid     = "";
 const char *password = "";
 long gmtOffset_sec = 0;  // Global variable to store the timezone offset
+
+int countdown = 10; // Initial countdown value
+int currentCountdown = countdown; // Holds the active countdown value
+bool timerRunning = false;
+unsigned long previousMillis = 0;
+const unsigned long interval = 1000; // 1-second interval
+const unsigned long startDelay = 1000; // 1 second delay before starting countdown
+const unsigned long stopDelay = 1000; // 1 second delay after stopping countdown before stopping recording
+
+bool isRecording = false;
+File recordingFile;
+float lastSampleHP = 0;
+float lastSampleLP = 0;
+unsigned long recordingStartTime = 0;
+unsigned long countdownStartTime = 0;
 
 // Global buffers for recording
 int32_t buffer32[BUFFER_SIZE];  // Buffer for 32-bit data from the microphone
@@ -120,7 +133,7 @@ void SD_setup() {
     Serial.print("Free Heap before operations: ");
     Serial.println(ESP.getFreeHeap());
 
-    listFiles();
+    // listFiles();   
 }
 
 void i2s_setup() {
@@ -205,7 +218,7 @@ void setupWiFi() {
 
       // Debug print the string before conversion
       //Serial.print("Raw Offset String: ");
-      Serial.println(rawOffsetStr);
+      // Serial.println(rawOffsetStr);
 
       // Convert to long, ensuring negative values are preserved
       long offset = 0;
@@ -220,8 +233,8 @@ void setupWiFi() {
       gmtOffset_sec = sign * offset;
 
       // Debug print after conversion
-      //Serial.print("GMT Offset (sec): ");
-      Serial.println(gmtOffset_sec);
+      // Serial.print("GMT Offset (sec): ");
+      // Serial.println(gmtOffset_sec);
 
       // Parse client IP and timezone
       int ipStart = payload.indexOf("\"client_ip\":\"") + 13;
@@ -249,83 +262,175 @@ void setupNTP() {
   // Use the global gmtOffset_sec here
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
  // Serial.print("Configuring NTP with offset: ");
-  Serial.println(gmtOffset_sec);
+ // Serial.println(gmtOffset_sec);
  // Serial.println("NTP synchronization complete.");
 }
 
 void setup() {
     Serial.begin(115200);
-        setupWiFi();
-        setupNTP();  
-        SD_setup();
-        i2s_setup();
-        start_recording();
+    setupWiFi();
+    setupNTP();  
+    SD_setup();
+    i2s_setup();   
 }
 
 void loop() {
+  if (Serial.available()) {
+    String command = Serial.readStringUntil('\n');
+    command.trim();
 
+    if (command.equalsIgnoreCase("start")) {
+      if (!timerRunning) {
+        Serial.println("Debug: Starting timer...");
+        timerRunning = true;
+        currentCountdown = countdown;
+        start_recording();
+        Serial.println("Recording started...");
+        countdownStartTime = millis() + startDelay; // Delay countdown start
+      } else {
+        Serial.println("Recording is already running.");
+      }
+    }
+
+    if (command.equalsIgnoreCase("stop")) {
+      if (timerRunning) {
+        timerRunning = false;
+        stop_recording();
+        Serial.printf("Recording stopped with %d seconds left\n", currentCountdown);
+      } else {
+        Serial.println("No recording is running.");
+      }
+    }
+
+    if (command.equalsIgnoreCase("recordings")) {
+      listRecordings();  // List recordings when "recordings" is received
+    }
+  }
+
+  if (timerRunning) {
+    unsigned long currentMillis = millis();
+    if (currentMillis >= countdownStartTime && currentMillis - previousMillis >= interval) {
+      previousMillis = currentMillis;
+      Serial.printf("%d seconds left\n", currentCountdown);
+      currentCountdown--;
+
+      if (currentCountdown == 0) {
+        Serial.println("Debug: Countdown reached zero, preparing to stop recording...");
+        delay(stopDelay); // Wait before stopping recording
+        stop_recording();
+        Serial.println("Recording finished!");
+        timerRunning = false;
+      }
+    }
+  }
 }
 
-// Record sound 
 void start_recording() {
-
-    // Start recording
-    Serial.println("Recording Audio...");
-
-    // File name for saving
+  if (!isRecording) {
+    Serial.println("Debug: Attempting to start recording...");
     String filename = "/recordings/" + getCurrentTimestamp() + ".wav";
-    recordAudio(filename.c_str(), DURATION_SEC);
-    Serial.println("Recording saved to file: " + filename);
-
+    recordingFile = SD.open(filename, FILE_WRITE);
+    if (!recordingFile) {
+      Serial.println("Failed to open file for writing.");
+      timerRunning = false; 
+      return;
+    }
+    Serial.println("File opened for writing: " + filename);
+    writeWAVHeader(recordingFile, SAMPLE_RATE, 1, BITS_PER_SAMPLE);
+    isRecording = true;
+    recordingStartTime = millis(); 
+    xTaskCreate(recordAudioTask, "recordAudioTask", 2048, NULL, 1, NULL);
+  } else {
+    Serial.println("Already recording!");
+  }
 }
 
-// Record sound in WAV format
-void recordAudio(const char *path, uint32_t duration) {
-    File file = SD.open(path, FILE_WRITE);
-    if (!file) {
-        Serial.println("Failed to open file for writing");
-        return;
+void stop_recording() {
+  if (isRecording) {
+    Serial.println("Debug: Stopping recording...");
+    isRecording = false;  // Set this to false before closing the file
+    if (recordingFile) {
+      updateWAVHeader(recordingFile);
+      recordingFile.close();
+      Serial.println("Recording stopped and file closed.");
+    }
+  } else {
+    Serial.println("No recording to stop!");
+  }
+}
+
+void recordAudioTask(void *pvParameters) {
+  Serial.println("Debug: Record Audio Task started");
+  while (1) { 
+    if (!isRecording) {
+      Serial.println("Debug: Record Audio Task noticed stop signal");
+      vTaskDelete(NULL); // Clean up by deleting the task
+    }
+    if (!recordAudio(recordingFile.name(), 1)) {
+      if (isRecording) {
+        Serial.println("Error in recording audio!");
+      } else {
+        Serial.println("Debug: Recording stopped normally");
+      }
+      vTaskDelete(NULL); // Stop task
+    }
+    vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay if write was successful
+  }
+}
+
+
+bool recordAudio(const char *path, uint32_t duration) {
+  if (!recordingFile) {
+    Serial.println("Failed to open file for writing in record audio");
+    return false;
+  }
+
+  uint32_t samples = SAMPLE_RATE * duration;
+  
+  while (samples > 0) {
+    size_t bytesRead = 0;
+    i2s_read(I2S_NUM_0, buffer32, BUFFER_SIZE * sizeof(int32_t), &bytesRead, portMAX_DELAY);
+
+    if (bytesRead == 0) {
+      Serial.println("No data read from microphone");
+      continue;  // No data read, try again
     }
 
-    // WAV file header
-    writeWAVHeader(file, SAMPLE_RATE, 1, BITS_PER_SAMPLE);
+    for (int i = 0; i < bytesRead / sizeof(int32_t); i++) {
+      int16_t sample = (int16_t)((buffer32[i] >> 8) * VOLUME_SCALE);
+      
+      if (!noiseGate(sample, noiseGateThreshold)) {
+        sample = 0;
+      } else {
+        sample = (int16_t)highPassFilter(sample, &lastSampleHP, HIGH_PASS_FREQ, SAMPLE_RATE);  
+        sample = (int16_t)lowPassFilter(sample, &lastSampleLP, LOW_PASS_FREQ, SAMPLE_RATE);  
+      }
+      buffer16[i] = sample;
+    }
 
-    uint32_t samples = SAMPLE_RATE * duration;  // Number of samples
+  if (!isRecording) {
+    //Serial.println("Debug: Recording stopped, skipping write");
+    return false;  // Don't attempt to write if recording has been stopped
+  }
+
+  if (recordingFile.write((uint8_t *)buffer16, bytesRead / 2) != (bytesRead / 2)) {
+    Serial.println("Failed to write audio data to file.");
+    return false;
+  }
     
-    // Variables for filters
-    float lastSampleHP = 0;
-    float lastSampleLP = 0;
+    samples -= bytesRead / sizeof(int32_t);
 
-    while (samples > 1024) {
-        size_t bytesRead = 0;
-        // Read data from the I2S microphone
-        i2s_read(I2S_NUM_0, buffer32, BUFFER_SIZE * sizeof(int32_t), &bytesRead, portMAX_DELAY);
-
-        // Convert 32-bit data to 16-bit, apply noise gate, then filters
-        for (int i = 0; i < bytesRead / sizeof(int32_t); i++) {
-            int16_t sample = (int16_t)((buffer32[i] >> 8) * VOLUME_SCALE);
-            
-            // Apply noise gate
-            if (!noiseGate(sample, noiseGateThreshold)) {
-                sample = 0; // Mute if below threshold
-            } else {
-
-
-                sample = (int16_t)highPassFilter(sample, &lastSampleHP, HIGH_PASS_FREQ, SAMPLE_RATE);  // High pass
-                sample = (int16_t)lowPassFilter(sample, &lastSampleLP, LOW_PASS_FREQ, SAMPLE_RATE);  // Low pass
-
-            }
-            buffer16[i] = sample;
-        }
-
-        // Write data to the file
-        file.write((uint8_t *)buffer16, bytesRead / 2);
-        samples -= bytesRead / sizeof(int32_t);
+    // Check if a stop command was received during recording
+    if (Serial.available()) {
+      String command = Serial.readStringUntil('\n');
+      command.trim();
+      if (command == "stop") {
+        return false;  // Signal to stop recording
+      }
     }
+  }
 
-    // Update the WAV file header
-    updateWAVHeader(file);
-    file.close();
+  return true;
 }
 
 // Function to write the WAV header
@@ -366,6 +471,7 @@ void updateWAVHeader(File &file) {
 }
 
 void listFiles() {
+    Serial.println("Listing files:");
     File root = SD.open("/");
     if (!root) {
         Serial.println("Failed to open directory");
@@ -392,3 +498,32 @@ void listFiles() {
     root.close();
 }
 
+void listRecordings() {
+    Serial.println("Listing files in /recordings:");
+    File dir = SD.open("/recordings");
+    if (!dir) {
+        Serial.println("Failed to open directory");
+        return;
+    }
+    if (!dir.isDirectory()) {
+        Serial.println("Not a directory");
+        dir.close();
+        return;
+    }
+
+    File file = dir.openNextFile();
+    while (file) {
+        if (file.isDirectory()) {
+            Serial.print("  DIR : ");
+            Serial.println(file.name());
+        } else {
+            Serial.print("  FILE: ");
+            Serial.print(file.name());
+            Serial.print("  SIZE: ");
+            Serial.println(file.size());
+        }
+        file = dir.openNextFile();
+    }
+    file.close();
+    dir.close();
+}
