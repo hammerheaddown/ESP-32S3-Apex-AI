@@ -167,7 +167,7 @@ void SD_setup() {
 
     Serial.print("Free Heap before operations: ");
     Serial.println(ESP.getFreeHeap());
-    // listFiles();
+
 }
 
 void i2s_setup() {
@@ -209,10 +209,7 @@ void i2s_setup() {
   }
 
 
-
 // Get Current Time as Filename-Friendly String
-
-
 String getCurrentTimestamp() {
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
@@ -255,10 +252,6 @@ void setupWiFi() {
       int offsetEnd = payload.indexOf(",", offsetStart);
       String rawOffsetStr = payload.substring(offsetStart, offsetEnd); // Removed .trim() here, it was causing the issue
 
-      // Debug print the string before conversion
-      //Serial.print("Raw Offset String: ");
-      // Serial.println(rawOffsetStr);
-
       // Convert to long, ensuring negative values are preserved
       long offset = 0;
       int sign = 1;
@@ -270,10 +263,6 @@ void setupWiFi() {
         offset = offset * 10 + (rawOffsetStr.charAt(i) - '0');
       }
       gmtOffset_sec = sign * offset;
-
-      // Debug print after conversion
-      // Serial.print("GMT Offset (sec): ");
-      // Serial.println(gmtOffset_sec);
 
       // Parse client IP and timezone
       int ipStart = payload.indexOf("\"client_ip\":\"") + 13;
@@ -299,9 +288,6 @@ void setupNTP() {
 
   // Use the global gmtOffset_sec here
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
- // Serial.print("Configuring NTP with offset: ");
- // Serial.println(gmtOffset_sec);
- // Serial.println("NTP synchronization complete.");
 }
 
 void setup() {
@@ -319,7 +305,7 @@ void loop() {
 
     if (command.equalsIgnoreCase("start")) {
       if (!timerRunning) {
-        Serial.println("Debug: Starting timer...");
+        Serial.println("Starting timer...");
         timerRunning = true;
         currentCountdown = countdown;
         start_recording();
@@ -413,7 +399,7 @@ void recordAudioTask(void *pvParameters) {
       if (isRecording) {
         Serial.println("Error in recording audio!");
       } else {
-        Serial.println("Debug: Recording stopped normally");
+        Serial.println("Recording stopped normally");
       }
       vTaskDelete(NULL); // Stop task
     }
@@ -512,33 +498,7 @@ void updateWAVHeader(File &file) {
     file.write((const uint8_t *)&dataSize, 4);
 }
 
-void listFiles() {
-    Serial.println("Listing files:");
-    File root = SD.open("/");
-    if (!root) {
-        Serial.println("Failed to open directory");
-        return;
-    }
-    if (!root.isDirectory()) {
-        Serial.println("Not a directory");
-        return;
-    }
 
-    File file = root.openNextFile();
-    while (file) {
-        if (file.isDirectory()) {
-            Serial.print("  DIR : ");
-            Serial.println(file.name());
-        } else {
-            Serial.print("  FILE: ");
-            Serial.print(file.name());
-            Serial.print("  SIZE: ");
-            Serial.println(file.size());
-        }
-        file = root.openNextFile();
-    }
-    root.close();
-}
 
 void listRecordings() {
     Serial.println("Listing files in /recordings:");
