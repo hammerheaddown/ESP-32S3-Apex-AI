@@ -5,6 +5,9 @@
 // ------------------                 ESP32-S3-DevKit N16R8 Development Board                                  ------------------
 // ------------------                 MAX98357 I2S Audio Amplifier Module                                      ------------------
 // ------------------                                                                                          ------------------ 
+// ------------------             This is the modified code and the origanal code was                          -----------------
+// ------------------               from KALOPROJECTS. A huge Shoutout to his amazing work                      -----------------
+// ------------------   KALO PROJECTS Github Repo - https://github.com/kaloprojects/KALO-ESP32-Voice-Assistant  -----------------
 // ------------------------------------------------------------------------------------------------------------------------------
 
 
