@@ -5,9 +5,17 @@
 // ------------------                 ESP32-S3-DevKit N16R8 Development Board                                  ------------------
 // ------------------                 MAX98357 I2S Audio Amplifier Module                                      ------------------
 // ------------------                                                                                          ------------------ 
-// ------------------             This is the modified code and the origanal code was                          -----------------
+// ------------------             This is the modified code and the original code was                           -----------------
 // ------------------               from KALOPROJECTS. A huge Shoutout to his amazing work                      -----------------
 // ------------------   KALO PROJECTS Github Repo - https://github.com/kaloprojects/KALO-ESP32-Voice-Assistant  -----------------
+// ------------------                                                                                           -----------------
+// ------------------              additional code i modified was from the following                            -----------------
+// ------------------            https://github.com/alexex1993/SimpleESP32Dictaphone                            -----------------
+// ------------------            https://github.com/techiesms/Portable-AI-Voice-Assistant-                      -----------------
+// ------------------                                                                                           -----------------
+// ------------------            PlayBack would not be possible without this awesome library                    -----------------
+// ------------------         https://github.com/schreibfaul1/ESP32-audioI2S  (GPL-3.0 license)                 -----------------
+// ------------------                                                                                           -----------------
 // ------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -371,14 +379,6 @@ void setup() {
     Serial.println(SAMPLE_RATE);
     Serial.print("Bits per sample: ");
     Serial.println(BITS_PER_SAMPLE);
-/*
-    audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT); // If you are still using this for audio output
-    audio.setVolume(21);
-
-    audio.connecttospeech("Welcome back Chaddoe !! What can i help you with today? ", "en"); // Google TTS          
-    while (audio.isRunning()) {audio.loop();} 
-
-*/
 }
 
 void loop() {
