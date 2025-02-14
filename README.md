@@ -12,6 +12,8 @@ https://github.com/0015/ThatProject/blob/master/ESP32_MICROPHONE/ESP32_INMP441_S
 
 techiesms
 https://github.com/techiesms/Portable-AI-Voice-Assistant-
+
+and his great channel
 https://www.youtube.com/techiesms
 
 this is still a huge work in progress  
