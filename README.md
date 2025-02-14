@@ -4,8 +4,11 @@ https://github.com/kaloprojects/KALO-ESP32-Voice-Assistant/
 
 ALSO:
 https://github.com/alexex1993/SimpleESP32Dictaphone
+
 https://github.com/0015/ThatProject/blob/master/ESP32_MICROPHONE/ESP32_INMP441_RECORDING/ESP32_INMP441_RECORDING.ino
+
 https://github.com/0015/ThatProject/blob/master/ESP32_MICROPHONE/ESP32_INMP441_SPEECH_TO_TEXT/ESP32_INMP441_RECORDING_UPLOAD_TO_SERVER/ESP32_INMP441_RECORDING_UPLOAD_TO_SERVER.ino
+
 
 techiesms
 https://github.com/techiesms/Portable-AI-Voice-Assistant-
