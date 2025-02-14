@@ -242,29 +242,6 @@ void i2s_setup() {
         },
       };
 
-  /*
-        i2s_std_config_t std_cfg = {
-        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(SAMPLE_RATE),
-        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(
-            I2S_DATA_BIT_WIDTH_32BIT, 
-            I2S_SLOT_MODE_MONO
-        ),
-        .gpio_cfg = {
-            .mclk = I2S_GPIO_UNUSED,
-            .bclk = (gpio_num_t)I2S_MIC_SERIAL_CLOCK,
-            .ws = (gpio_num_t)I2S_MIC_LEFT_RIGHT_CLOCK,
-            .dout = I2S_GPIO_UNUSED,
-            .din = (gpio_num_t)I2S_MIC_SERIAL_DATA,
-            .invert_flags = {
-                .mclk_inv = false,
-                .bclk_inv = false,
-                .ws_inv = false,
-            },
-        },
-    };
-
-  */
-
     if (i2s_channel_init_std_mode(mic_rx_handle, &std_cfg) != ESP_OK) {
         Serial.println("Error installing I2S driver");
         while (1);
