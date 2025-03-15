@@ -48,9 +48,7 @@ I2SStream i2s;
 EncodedAudioStream decoder(&i2s, new MP3DecoderHelix());
 StreamCopy copier(decoder);
 
-// -------------------------- Misc Setup ------------------------------------------
-unsigned long lastKeepAliveTime = 0;
-const unsigned long keepAliveInterval = 15000; // 10 seconds
+// --------------------------------------------------------------------
 
 void SD_setup() {
     pinMode(SD_CS, OUTPUT);
